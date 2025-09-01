@@ -40,3 +40,18 @@ Run:
 ```bash
 python launcher.py --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json --out state
 ```
+
+## Hardened scaffold (no chain ops yet)
+
+- Packages have proper `__init__.py`
+- `artifacts.json` persists mint/pool/swaps placeholders
+- Receipts include `schema_version`, `plan_hash`, `created_ms`
+- `configs/defaults.yaml` is loaded; key program IDs are displayed
+- `--only lp` normalized to `lp_init`
+
+Run full scaffold:
+```bash
+python launcher.py \
+  --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json \
+  --out state
+```

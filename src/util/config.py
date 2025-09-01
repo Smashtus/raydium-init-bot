@@ -9,4 +9,5 @@ def load_config(path: Path | None) -> Dict[str, Any]:
         path = Path("configs/defaults.yaml")
     if not path.exists():
         return {}
-    return yaml.safe_load(path.read_text()) or {}
+    data = yaml.safe_load(path.read_text())
+    return data or {}
