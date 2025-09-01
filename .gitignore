@@ -10,5 +10,10 @@
 *.keystore
 *.p8
 .secrets.baseline
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
 # misc
 .DS_Store

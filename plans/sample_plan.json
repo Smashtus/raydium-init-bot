@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "model": "sample",
+  "network": "devnet",
+  "plan_id": "sample-plan",
+  "created_at": "2024-01-01T00:00:00Z",
+  "token": {
+    "total_mint": 1000000,
+    "lp_tokens": 500000,
+    "name": "SampleToken",
+    "symbol": "SAMP",
+    "decimals": 6,
+    "authorities": {"mint_authority": "LP_CREATOR"},
+    "uri": "https://example.com/metadata.json"
+  },
+  "inputs": {
+    "B_total": 1000000000,
+    "T0": 500000,
+    "q_atomic": 100000000,
+    "n_buys": 2,
+    "follow_ratio": 0.5,
+    "fee": 500,
+    "mm_pct": 0.1,
+    "buffer_pct": 0.05,
+    "snap_lamports": false
+  },
+  "dex": {
+    "variant": "RAYDIUM_V4",
+    "program_id": "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8",
+    "pool_type": "CPMM",
+    "quote_mint": "So11111111111111111111111111111111111111112",
+    "quote_decimals": 9
+  },
+  "schedule": ["w1", "w2"],
+  "wallets": [
+    {
+      "wallet_id": "seed",
+      "role": "SEED",
+      "funding": {"total_lamports": 0},
+      "action": null
+    },
+    {
+      "wallet_id": "w1",
+      "role": "LP_CREATOR",
+      "funding": {"total_lamports": 500000000, "base_lamports": 500000000},
+      "action": {
+        "type": "SWAP_BUY",
+        "effective_base_sol": 500000000,
+        "min_out_tokens": 1000,
+        "slippage_bps": 50
+      }
+    },
+    {
+      "wallet_id": "w2",
+      "role": "FOLLOWUP_BUY",
+      "funding": {"total_lamports": 500000000, "base_lamports": 500000000},
+      "action": {
+        "type": "SWAP_BUY",
+        "effective_base_sol": 500000000,
+        "min_out_tokens": 1000,
+        "slippage_bps": 50
+      }
+    }
+  ],
+  "invariants": {
+    "sum_non_seed_lamports": 1000000000,
+    "seed_lamports": 1000000000,
+    "expected_equalities": []
+  },
+  "tx_defaults": {
+    "compute_unit_limit": 1000000,
+    "compute_unit_price_micro_lamports": 0,
+    "jito_tip_lamports": 0
+  }
+}
