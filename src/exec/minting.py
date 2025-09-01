@@ -1,35 +1,18 @@
-"""Token mint creation and initial distribution."""
-
 from __future__ import annotations
-
-from typing import Any, Dict
-
-from src.core.ata import ata
-from src.core.spl_token import create_mint_and_mint_to
+from typing import Dict, Any
+from src.models.plan import Plan
 from src.core.solana import Rpc
+from src.core.ata import ata
+from spl.token.client import Token
+from solders.pubkey import Pubkey
+from spl.token.constants import TOKEN_PROGRAM_ID
 
 
-async def run(
-    rpc: Rpc,
-    payer_kp,
-    lp_creator_pub: str,
-    decimals: int,
-    amount: int,
-) -> Dict[str, Any]:
-    """Create a new SPL mint and mint ``amount`` tokens to ``lp_creator_pub``."""
-
+async def run(rpc: Rpc, payer_kp, lp_creator_pub: str, decimals: int, amount: int) -> Dict[str, Any]:
+    # If artifacts already contain a mint, caller should pass it and skip
     client = rpc.client
-    mint, lp_creator_ata, _ = await create_mint_and_mint_to(
-        client,
-        payer_kp,
-        decimals,
-        lp_creator_pub,
-        lp_creator_pub,
-        amount,
-    )
-    return {
-        "mint": mint,
-        "lp_creator_ata": lp_creator_ata,
-        "minted_tokens": amount,
-    }
-
+    token = await Token.create_mint(client, payer_kp, Pubkey.from_string(lp_creator_pub), None, decimals, TOKEN_PROGRAM_ID)
+    mint_pub = token.pubkey
+    ata_addr = await token.create_associated_token_account(Pubkey.from_string(lp_creator_pub))
+    await token.mint_to(ata_addr, Pubkey.from_string(lp_creator_pub), payer_kp, amount)
+    return {"mint": str(mint_pub), "lp_creator_ata": str(ata_addr), "minted_tokens": amount}

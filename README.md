@@ -55,3 +55,15 @@ python launcher.py \
   --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json \
   --out state
 ```
+
+## Production Runbook (mainnet-beta, prod-safe)
+
+1) Prepare:
+   - `export LAUNCHER_WALLET_PASS="your-strong-passphrase"`
+   - Place your plan JSON under `./plans/`.
+   - Ensure RPC URL is mainnet-beta and healthy.
+
+2) Dry summary:
+```bash
+python launcher.py --plan plans/<PLAN>.json --rpc https://YOUR_RPC --simulate --only mint --out state
+```

@@ -71,6 +71,9 @@ async def swap_exact_in_SOL_to_base(
     slippage_bps: int,
     base_mint: str,
     quote_mint: str,
+    cu_limit: int | None = None,
+    cu_price_micro: int | None = None,
+    simulate: bool = False,
 ) -> Tuple[str, int]:
     """Placeholder for a direct SOL→token swap on Raydium.
 
