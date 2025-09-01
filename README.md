@@ -26,3 +26,17 @@ python launcher.py \
   --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json \
   --out state
 ```
+## Hardening & Resumability
+
+This patch:
+- Adds package `__init__.py` files,
+- Persists `artifacts.json` across steps,
+- Versioned receipts with `schema_version`, `plan_hash`, `created_ms`,
+- Saves a copy of the executed plan to `state/plan.json`,
+- Loads config from `configs/defaults.yaml`,
+- Implements true resume: steps are skipped when their receipt exists and artifacts contain required fields.
+
+Run:
+```bash
+python launcher.py --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json --out state
+```
