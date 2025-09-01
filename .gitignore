@@ -1,0 +1,14 @@
+# secrets
+*.pat
+.pat
+.env
+*.env
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.p8
+.secrets.baseline
+# misc
+.DS_Store
