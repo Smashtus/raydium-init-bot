@@ -1,3 +1,17 @@
-pydantic==1.10.15
-orjson==3.9.15
-PyYAML==6.0.1
+# Core Solana stack
+solana==0.35.2
+solders==0.21.0
+anchorpy==0.20.1
+
+# Model / IO
+pydantic==2.8.2
+orjson==3.10.7
+python-dotenv==1.0.1
+
+# Logging / CLI
+structlog==24.4.0
+rich==13.7.1
+pyyaml==6.0.2
+
+# (Optional, keep commented until we wire it)
+# jito-searcher-client==0.1.3

@@ -17,4 +17,4 @@ def test_cli_dry_run(tmp_path):
         '--rpc', 'https://example.com',
         '--dry-run',
     ])
-    assert 'Dry run mode enabled' in output
+    assert 'Dry-run OK' in output

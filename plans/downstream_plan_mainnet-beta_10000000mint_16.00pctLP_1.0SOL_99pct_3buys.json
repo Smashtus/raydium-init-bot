@@ -1,24 +1,24 @@
 {
   "version": "1.0",
-  "model": "sample",
-  "network": "devnet",
-  "plan_id": "sample-plan",
+  "model": "downstream",
+  "network": "mainnet-beta",
+  "plan_id": "downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys",
   "created_at": "2024-01-01T00:00:00Z",
   "token": {
-    "total_mint": 1000000,
-    "lp_tokens": 500000,
-    "name": "SampleToken",
-    "symbol": "SAMP",
-    "decimals": 6,
+    "total_mint": 10000000,
+    "lp_tokens": 1600000,
+    "name": "DownstreamToken",
+    "symbol": "DST",
+    "decimals": 9,
     "authorities": {"mint_authority": "LP_CREATOR"},
     "uri": "https://example.com/metadata.json"
   },
   "inputs": {
     "B_total": 1000000000,
-    "T0": 500000,
+    "T0": 1600000,
     "q_atomic": 100000000,
-    "n_buys": 2,
-    "follow_ratio": 0.5,
+    "n_buys": 3,
+    "follow_ratio": 0.99,
     "fee": 500,
     "mm_pct": 0.1,
     "buffer_pct": 0.05,
@@ -31,7 +31,7 @@
     "quote_mint": "So11111111111111111111111111111111111111112",
     "quote_decimals": 9
   },
-  "schedule": ["w1", "w2"],
+  "schedule": ["w1"],
   "wallets": [
     {
       "wallet_id": "seed",
@@ -42,21 +42,8 @@
     {
       "wallet_id": "w1",
       "role": "LP_CREATOR",
-      "funding": {"total_lamports": 500000000, "base_lamports": 500000000},
-      "action": {
-        "type": "CREATE_LP"
-      }
-    },
-    {
-      "wallet_id": "w2",
-      "role": "FOLLOWUP_BUY",
-      "funding": {"total_lamports": 500000000, "base_lamports": 500000000},
-      "action": {
-        "type": "SWAP_BUY",
-        "effective_base_sol": 500000000,
-        "min_out_tokens": 1000,
-        "slippage_bps": 50
-      }
+      "funding": {"total_lamports": 1000000000, "base_lamports": 1000000000},
+      "action": {"type": "CREATE_LP"}
     }
   ],
   "invariants": {
@@ -70,3 +57,4 @@
     "jito_tip_lamports": 0
   }
 }
+
