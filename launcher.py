@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
 
 def print_plan_summary(plan_path: Path, cfg: dict) -> None:
     plan = load_plan(plan_path)
-    t = Table(title="Plan Summary", show_header=True, header_style="bold")
+    t = Table(title="Plan & Config Summary", show_header=True, header_style="bold")
     t.add_column("Field"); t.add_column("Value")
     t.add_row("version", plan.version)
     t.add_row("model", plan.model)
@@ -39,8 +39,8 @@ def print_plan_summary(plan_path: Path, cfg: dict) -> None:
     t.add_row("plan_id", plan.plan_id)
     t.add_row("token.symbol", plan.token.symbol)
     t.add_row("dex.variant", plan.dex.variant)
-    t.add_row("dex.program_id", plan.dex.program_id)
-    t.add_row("cfg.raydium_v4_amm", str(cfg.get("program_ids", {}).get("raydium_v4_amm")))
+    t.add_row("dex.program_id (plan)", plan.dex.program_id)
+    t.add_row("program_ids.raydium_v4_amm (cfg)", str(cfg.get("program_ids", {}).get("raydium_v4_amm")))
     t.add_row("schedule.len", str(len(plan.schedule)))
     t.add_row("wallets.len", str(len(plan.wallets)))
     console.print(t)
@@ -50,8 +50,8 @@ def main() -> None:
     setup_logging()
     args = parse_args()
     plan_path = Path(args.plan)
+    cfg = load_config(Path(args.config))
     plan_hash = sha256_file(plan_path)
-    cfg = load_config(Path(args.config) if args.config else None)
 
     log.info("load_plan_start", path=str(plan_path), plan_hash=plan_hash)
     plan = load_plan(plan_path)
@@ -62,17 +62,18 @@ def main() -> None:
         console.print("[bold green]Dry-run OK[/bold green] — plan structure accepted.")
         return
 
-    only = "lp_init" if args.only == "lp" else args.only
-    rc = RunConfig(out_dir=Path(args.out), resume=args.resume, only=only, plan_hash=plan_hash)
+    only_norm = "lp_init" if args.only == "lp" else args.only
+    rc = RunConfig(out_dir=Path(args.out), resume=args.resume, only=only_norm, plan_hash=plan_hash)
 
-    # persist a copy of the plan for auditing
+    # Persist executed plan for audit
     out_plan = Path(args.out) / "plan.json"
     out_plan.parent.mkdir(parents=True, exist_ok=True)
     out_plan.write_bytes(plan_path.read_bytes())
 
     execute(plan, rc)
-    console.print(f"[bold green]Done.[/bold green] Receipts at: {args.out}/receipts\nArtifacts at: {args.out}/artifacts.json")
+    console.print(f"[bold green]Done.[/bold green] Receipts: {args.out}/receipts  |  Artifacts: {args.out}/artifacts.json")
 
 
 if __name__ == "__main__":
     main()
+

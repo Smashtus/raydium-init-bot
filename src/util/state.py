@@ -27,23 +27,16 @@ class State:
         self.receipts_dir.mkdir(exist_ok=True)
         self.chk = self.dir / "checkpoints.json"
         self.artifacts_path = self.dir / "artifacts.json"
-        if self.chk.exists():
-            self.checkpoints = json.loads(self.chk.read_text())
-        else:
-            self.checkpoints = {"done": []}
-        if self.artifacts_path.exists():
-            self.artifacts = json.loads(self.artifacts_path.read_text())
-        else:
-            self.artifacts = {}
+        self.checkpoints = json.loads(self.chk.read_text()) if self.chk.exists() else {"done": []}
+        self.artifacts = json.loads(self.artifacts_path.read_text()) if self.artifacts_path.exists() else {}
 
     def done(self, step: str) -> bool:
         return step in self.checkpoints.get("done", [])
 
     def mark(self, step: str, receipt: StepReceipt) -> None:
-        self.checkpoints.setdefault("done", []).append(step)
-        (self.receipts_dir / f"{step}.json").write_text(
-            json.dumps(asdict(receipt), indent=2)
-        )
+        if step not in self.checkpoints.setdefault("done", []):
+            self.checkpoints["done"].append(step)
+        (self.receipts_dir / f"{step}.json").write_text(json.dumps(asdict(receipt), indent=2))
         self.chk.write_text(json.dumps(self.checkpoints, indent=2))
 
     def merge_artifacts(self, patch: Dict[str, Any]) -> None:
@@ -52,6 +45,5 @@ class State:
 
     def load_receipt(self, step: str) -> Dict[str, Any] | None:
         p = self.receipts_dir / f"{step}.json"
-        if not p.exists():
-            return None
-        return json.loads(p.read_text())
+        return json.loads(p.read_text()) if p.exists() else None
+

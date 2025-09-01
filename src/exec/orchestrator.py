@@ -1,7 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 from src.models.plan import Plan
 from src.util.state import State, StepReceipt
 from src.exec.invariants import assert_plan_invariants
@@ -18,11 +17,8 @@ class RunConfig:
     plan_hash: str | None = None
 
 
-def _should_run(step: str, cfg: RunConfig) -> bool:
-    if cfg.only == "all":
-        return True
-    alias = "lp_init" if cfg.only == "lp" else cfg.only
-    return alias == step
+def _selected(step: str, only: str) -> bool:
+    return only == "all" or (only == "lp" and step == "lp_init") or (only == step)
 
 
 def execute(plan: Plan, cfg: RunConfig) -> None:
@@ -30,40 +26,44 @@ def execute(plan: Plan, cfg: RunConfig) -> None:
     assert_plan_invariants(plan)
 
     # FUNDING
-    if _should_run("funding", cfg) and (not cfg.resume or not state.done("funding")):
-        f_out = funding.run(plan)
-        state.mark("funding", StepReceipt(step="funding", ok=True, inputs={"wallets": len(plan.wallets)}, outputs=f_out, plan_hash=cfg.plan_hash))
-        state.merge_artifacts({"funding": f_out})
+    if _selected("funding", cfg.only):
+        if not (cfg.resume and state.done("funding")):
+            f_out = funding.run(plan)  # stubbed, deterministic
+            state.mark("funding", StepReceipt(step="funding", ok=True, inputs={"wallets": len(plan.wallets)}, outputs=f_out, plan_hash=cfg.plan_hash))
+            state.merge_artifacts({"funding": f_out})
 
     # MINT
-    mint_out = state.artifacts.get("mint")
-    if not mint_out and _should_run("mint", cfg) and (not cfg.resume or not state.done("mint")):
-        mint_out = minting.run(plan)
-        state.mark("mint", StepReceipt(step="mint", ok=True, inputs={"lp_tokens": plan.token.lp_tokens}, outputs=mint_out, plan_hash=cfg.plan_hash))
-        state.merge_artifacts({"mint": mint_out})
-    elif not mint_out:
-        # compute but also persist for downstream steps to read
-        mint_out = minting.run(plan)
-        state.merge_artifacts({"mint": mint_out})
+    if _selected("mint", cfg.only):
+        if cfg.resume and state.done("mint") and "mint" in state.artifacts:
+            m_out = state.artifacts["mint"]
+        else:
+            m_out = minting.run(plan)
+            state.mark("mint", StepReceipt(step="mint", ok=True, inputs={"lp_tokens": plan.token.lp_tokens}, outputs=m_out, plan_hash=cfg.plan_hash))
+            state.merge_artifacts({"mint": m_out})
+    else:
+        m_out = state.artifacts.get("mint", minting.run(plan))
+        state.merge_artifacts({"mint": m_out})
 
     # METADATA
-    if _should_run("metadata", cfg) and (not cfg.resume or not state.done("metadata")):
-        md = {"name": plan.token.name, "symbol": plan.token.symbol, "uri": plan.token.uri, "tx_sig": f"FAKE_SIG_META_{plan.plan_id}"}
-        state.mark("metadata", StepReceipt(step="metadata", ok=True, inputs={"mint": mint_out["mint"]}, outputs=md, plan_hash=cfg.plan_hash))
-        state.merge_artifacts({"metadata": md})
+    if _selected("metadata", cfg.only):
+        if not (cfg.resume and state.done("metadata")):
+            md = {"name": plan.token.name, "symbol": plan.token.symbol, "uri": plan.token.uri, "tx_sig": f"FAKE_SIG_META_{plan.plan_id}"}
+            state.mark("metadata", StepReceipt(step="metadata", ok=True, inputs={"mint": m_out["mint"]}, outputs=md, plan_hash=cfg.plan_hash))
+            state.merge_artifacts({"metadata": md})
 
     # LP INIT
-    lp_out = state.artifacts.get("lp_init")
-    if not lp_out and _should_run("lp_init", cfg) and (not cfg.resume or not state.done("lp_init")):
-        lp_out = pool_init.run(plan, mint_addr=mint_out["mint"])
-        state.mark("lp_init", StepReceipt(step="lp_init", ok=True, inputs={"mint": mint_out["mint"]}, outputs=lp_out, plan_hash=cfg.plan_hash))
-        state.merge_artifacts({"lp_init": lp_out})
-    elif not lp_out:
-        lp_out = pool_init.run(plan, mint_addr=mint_out["mint"])
-        state.merge_artifacts({"lp_init": lp_out})
+    if _selected("lp_init", cfg.only):
+        if cfg.resume and state.done("lp_init") and "lp_init" in state.artifacts:
+            lp = state.artifacts["lp_init"]
+        else:
+            lp = pool_init.run(plan, mint_addr=m_out["mint"])
+            state.mark("lp_init", StepReceipt(step="lp_init", ok=True, inputs={"mint": m_out["mint"]}, outputs=lp, plan_hash=cfg.plan_hash))
+            state.merge_artifacts({"lp_init": lp})
 
     # BUYS
-    if _should_run("buys", cfg) and (not cfg.resume or not state.done("buys")):
-        b = swaps.run(plan)
-        state.mark("buys", StepReceipt(step="buys", ok=True, inputs={"schedule_len": len(plan.schedule)}, outputs=b, plan_hash=cfg.plan_hash))
-        state.merge_artifacts({"buys": b})
+    if _selected("buys", cfg.only):
+        if not (cfg.resume and state.done("buys")):
+            b = swaps.run(plan)
+            state.mark("buys", StepReceipt(step="buys", ok=True, inputs={"schedule_len": len(plan.schedule)}, outputs=b, plan_hash=cfg.plan_hash))
+            state.merge_artifacts({"buys": b})
+
