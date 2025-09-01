@@ -15,3 +15,14 @@ cp downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json 
 
 python launcher.py --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json --dry-run
 ```
+## Execution scaffold (no chain ops yet)
+
+This patch adds a resumable orchestrator that produces receipts for each step. It does **not** submit transactions yet.
+
+Run end-to-end scaffold:
+
+```bash
+python launcher.py \
+  --plan plans/downstream_plan_mainnet-beta_10000000mint_16.00pctLP_1.0SOL_99pct_3buys.json \
+  --out state
+```

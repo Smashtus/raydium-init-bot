@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 from src.io.jsonio import load_plan
 from src.util.logging import setup_logging, log
+from src.exec.orchestrator import execute, RunConfig
 
 console = Console()
 
@@ -16,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--rpc", help="RPC URL for cluster")
     p.add_argument("--priority-fee", type=int, default=None, help="Compute unit price (micro-lamports)")
     p.add_argument("--tip-lamports", type=int, default=None, help="Jito tip lamports")
-    p.add_argument("--dry-run", action="store_true", help="Simulate/parse only, no submits")
+    p.add_argument("--dry-run", action="store_true", help="Simulate/parse only (summary), no step execution")
     p.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
     p.add_argument("--only", choices=["fund","mint","metadata","lp","buys","all"], default="all")
     p.add_argument("--allow-override", action="store_true", help="Allow plan program id overrides")
@@ -54,11 +55,15 @@ def main() -> None:
     log.info("load_plan_start", path=str(plan_path))
     plan = load_plan(plan_path)
     log.info("load_plan_ok", symbol=plan.token.symbol, schedule_len=len(plan.schedule), wallets=len(plan.wallets))
+
     if args.dry_run:
         print_plan_summary(plan_path)
         console.print("[bold green]Dry-run OK[/bold green] — plan structure accepted.")
         return
-    console.print("[yellow]Execution code not wired yet in this patch.[/yellow]")
+
+    cfg = RunConfig(out_dir=Path(args.out), resume=args.resume, only=("lp" if args.only=="lp" else args.only))
+    execute(plan, cfg)
+    console.print(f"[bold green]Done.[/bold green] Receipts at: {args.out}/receipts")
 
 if __name__ == "__main__":
     main()
