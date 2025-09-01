@@ -2,6 +2,12 @@
 solana==0.35.2
 solders==0.21.0
 anchorpy==0.20.1
+construct==2.10.70
+base58==2.1.1
+pynacl==1.5.0
+cryptography==43.0.0
+aiohttp==3.9.5
+tenacity==8.5.0
 
 # Model / IO
 pydantic==2.8.2

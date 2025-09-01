@@ -62,6 +62,10 @@ def main() -> None:
         console.print("[bold green]Dry-run OK[/bold green] — plan structure accepted.")
         return
 
+    # Live execution path -------------------------------------------------
+    from src.core.solana import Rpc, RpcConfig
+
+    rpc = Rpc(RpcConfig(url=args.rpc or ""))
     only_norm = "lp_init" if args.only == "lp" else args.only
     rc = RunConfig(out_dir=Path(args.out), resume=args.resume, only=only_norm, plan_hash=plan_hash)
 
@@ -70,7 +74,7 @@ def main() -> None:
     out_plan.parent.mkdir(parents=True, exist_ok=True)
     out_plan.write_bytes(plan_path.read_bytes())
 
-    execute(plan, rc)
+    execute(plan, rc, rpc=rpc)
     console.print(f"[bold green]Done.[/bold green] Receipts: {args.out}/receipts  |  Artifacts: {args.out}/artifacts.json")
 
 
