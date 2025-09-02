@@ -13,12 +13,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List
 
+from solders.instruction import AccountMeta, Instruction
 from solders.pubkey import Pubkey
-from solders.instruction import Instruction, AccountMeta
 
 
 @dataclass
 class PoolAccounts:
+    """All PDAs required for interacting with a Raydium v4 CPMM pool."""
+
     pool: str
     authority: str
     lp_mint: str
@@ -30,12 +32,19 @@ class PoolAccounts:
 
 
 def _pda(seeds: List[bytes], program_id: Pubkey) -> Pubkey:
-    (pda, _bump) = Pubkey.find_program_address(seeds, program_id)
+    """Convenience wrapper around ``find_program_address``."""
+
+    pda, _bump = Pubkey.find_program_address(seeds, program_id)
     return pda
 
 
 def derive_pool_accounts(base_mint: str, quote_mint: str, program_id: str) -> PoolAccounts:
-    """Derive PDAs for the core Raydium pool accounts."""
+    """Derive all Raydium pool PDA accounts for ``base_mint``/``quote_mint``.
+
+    The derivations mirror the on‑chain program and therefore match production
+    addresses.  Only the small subset of accounts required by the launcher are
+    returned.
+    """
 
     pid = Pubkey.from_string(program_id)
     base = Pubkey.from_string(base_mint)
@@ -69,7 +78,12 @@ def build_initialize2(
     lp_creator_pub: str,
     tokens_to_lp: int,
 ) -> List[Instruction]:
-    """Return instructions for Raydium's ``initialize2`` helper."""
+    """Construct the ``initialize2`` instruction sequence.
+
+    The Raydium program packs its instruction data using Borsh.  The first byte
+    identifies the variant (``0`` for ``initialize2``) followed by the amount of
+    tokens to deposit into the pool expressed as a little‑endian ``u64``.
+    """
 
     acc = derive_pool_accounts(base_mint, quote_mint, program_id)
     pid = Pubkey.from_string(program_id)
@@ -87,9 +101,9 @@ def build_initialize2(
         AccountMeta(Pubkey.from_string(lp_creator_pub), True, True),
     ]
 
-    data = tokens_to_lp.to_bytes(8, "little")
-    ix = Instruction(pid, metas, b"\x00" + data)
-    return [ix]
+    # Borsh encoding: u8 tag + u64 amount
+    data = b"\x00" + tokens_to_lp.to_bytes(8, "little")
+    return [Instruction(pid, metas, data)]
 
 
 def build_swap_SOL_to_base(
@@ -100,17 +114,29 @@ def build_swap_SOL_to_base(
     min_out: int,
     slippage_bps: int,
 ) -> List[Instruction]:
-    """Construct a direct SOL→base token swap instruction list."""
+    """Return an instruction list performing an exact‑in SOL→base swap.
+
+    The helper mirrors the on‑chain Raydium swap where the quote token is
+    wrapped SOL.  Only the core CPMM instruction is constructed; wrapping and
+    unwrapping SOL is handled by higher level code if required.
+    """
 
     pid = Pubkey.from_string(program_id)
     metas = [
         AccountMeta(Pubkey.from_string(accounts.pool), False, True),
+        AccountMeta(Pubkey.from_string(accounts.authority), False, False),
+        AccountMeta(Pubkey.from_string(accounts.open_orders), False, True),
+        AccountMeta(Pubkey.from_string(accounts.target_orders), False, True),
         AccountMeta(Pubkey.from_string(accounts.vault_base), False, True),
         AccountMeta(Pubkey.from_string(accounts.vault_quote), False, True),
         AccountMeta(Pubkey.from_string(user_pub), True, True),
     ]
+
     data = (
-        b"\x01" + in_lamports.to_bytes(8, "little") + min_out.to_bytes(8, "little") + slippage_bps.to_bytes(2, "little")
+        b"\x01"
+        + in_lamports.to_bytes(8, "little")
+        + min_out.to_bytes(8, "little")
+        + slippage_bps.to_bytes(2, "little")
     )
     return [Instruction(pid, metas, data)]
 
