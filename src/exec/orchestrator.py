@@ -19,6 +19,7 @@ from src.core.keys import (
 from src.exec import funding, minting, metadata, pool_init, swaps
 from src.core.metaplex import find_metadata_pda
 from src.dex.raydium_v4 import derive_pool_accounts, probe_pool_exists
+from src.exec.invariants import assert_plan_invariants, assert_runtime_bounds
 
 STEPS_ORDER = ["funding","mint","metadata","lp_init","buys"]
 
@@ -34,8 +35,11 @@ class RunConfig:
     tip_to: str | None = None
     tip_lamports: int | None = None
     simulate: bool = False
+    max_buys: int | None = None
 
 async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, config_yaml: Path) -> None:
+    assert_plan_invariants(plan)
+    assert_runtime_bounds(plan)
     state = State(cfg.out_dir)
     telem = Telemetry(cfg.out_dir / "telemetry.ndjson")
     rpc = Rpc(RpcConfig(url=cfg.rpc_url))
@@ -189,6 +193,7 @@ async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, conf
             cu_price_micro=cfg.cu_price_micro,
             simulate=cfg.simulate,
             buys_done=buys_done,
+            max_buys=cfg.max_buys,
         )
         state.mark(
             "buys",

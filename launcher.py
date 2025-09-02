@@ -29,12 +29,14 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--only", choices=["fund","mint","metadata","lp","lp_init","buys","all"], default="all")
     run.add_argument("--out", default="state", help="Output state dir")
     run.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
+    run.add_argument("--max-buys", type=int, default=None, help="Optional cap on number of buys to execute")
 
     pre = sub.add_parser("preflight", help="Dry-run planners and verify configuration")
     pre.add_argument("--plan", required=True, help="Path to plan JSON")
     pre.add_argument("--rpc", required=True, help="RPC URL for cluster")
     pre.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
     pre.add_argument("--out", default="state", help="Output state dir")
+    pre.add_argument("--strict", action="store_true", help="Exit non-zero if any check fails")
 
     ver = sub.add_parser("verify", help="Verify on-chain state against artifacts")
     ver.add_argument("--out", default="state", help="State directory with artifacts")
@@ -80,11 +82,16 @@ def main() -> None:
             t.add_row(k, str(v))
         t.add_row("simulate_metadata_ok", str(res["simulate_metadata_ok"]))
         t.add_row("simulate_init_ok", str(res["simulate_init_ok"]))
+        t.add_row("ok", str(res["ok"]))
         console.print(t)
+        if args.strict and not res["ok"]:
+            raise SystemExit(1)
         return
 
     if args.cmd == "verify":
-        asyncio.run(verify_script(Path(args.out), args.rpc, Path(args.config)))
+        results, ok = asyncio.run(verify_script(Path(args.out), args.rpc, Path(args.config)))
+        if not ok:
+            raise SystemExit(1)
         return
 
     # run subcommand
@@ -107,6 +114,7 @@ def main() -> None:
         cu_limit=args.cu_limit,
         cu_price_micro=args.priority_fee,
         simulate=args.simulate,
+        max_buys=args.max_buys,
     )
 
     # Persist executed plan for audit

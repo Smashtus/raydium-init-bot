@@ -74,9 +74,14 @@ async def preflight(rpc: Rpc, plan_path: Path, cfg: Dict[str, Any], plan) -> Dic
         tx2.add(ix)
     sim_init = await rpc.simulate(tx2)
 
+    simulate_md_ok = sim_md.get("err") is None
+    simulate_init_ok = sim_init.get("err") is None
+    ok = all(program_checks.values()) and simulate_md_ok and simulate_init_ok
+
     return {
         "plan_hash": plan_hash,
         "program_checks": program_checks,
-        "simulate_metadata_ok": sim_md.get("err") is None,
-        "simulate_init_ok": sim_init.get("err") is None,
+        "simulate_metadata_ok": simulate_md_ok,
+        "simulate_init_ok": simulate_init_ok,
+        "ok": ok,
     }
