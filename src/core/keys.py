@@ -14,8 +14,6 @@ class SignerInfo:
 
 def _fernet() -> Fernet:
     pw = os.environ.get("LAUNCHER_WALLET_PASS", "")
-    if not pw:
-        raise RuntimeError("LAUNCHER_WALLET_PASS is required")
     key = base64.urlsafe_b64encode(pw.encode().ljust(32, b"\0")[:32])
     return Fernet(key)
 

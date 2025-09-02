@@ -28,7 +28,8 @@ async def run(
     resume without duplicating on‑chain state.
     """
 
-    buys_done = buys_done or {}
+    if buys_done is None:
+        buys_done = {}
     results: List[Dict[str, Any]] = []
     order = 0
     accounts = derive_pool_accounts(base_mint, quote_mint, program_id)
@@ -38,7 +39,7 @@ async def run(
             continue
         order += 1
         if buys_done.get(wid):
-            results.append({"order": order, "wallet_id": wid, "skipped": True})
+            results.append({"order": order, "wallet_id": wid, "skipped": True, "reason": "already_swapped"})
             continue
         kp = wallet_map[wid]["kp"]
         tx = Transaction()
