@@ -54,11 +54,8 @@ async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, conf
         for wid, info in state.artifacts.get("wallets", {}).items():
             p = info.get("path")
             if p and p.endswith(".enc"):
-                try:
-                    kp = load_encrypted(p)
-                    wallet_map[wid] = {"kp": kp, "pub": pubkey_str(kp)}
-                except Exception:
-                    pass
+                kp = load_encrypted(p)
+                wallet_map[wid] = {"kp": kp, "pub": pubkey_str(kp)}
             elif info.get("pub"):
                 wallet_map[wid] = {"pub": info.get("pub")}
 

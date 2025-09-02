@@ -11,10 +11,12 @@ try:  # pragma: no cover - executed only when the spl token library is present
     from solders.pubkey import Pubkey
     from spl.token.instructions import get_associated_token_address
 except Exception:  # pragma: no cover - test environment without deps
-    Pubkey = object  # type: ignore
+    from solders.pubkey import Pubkey  # type: ignore
+    import hashlib
 
-    def get_associated_token_address(*_args, **_kwargs):  # type: ignore
-        raise RuntimeError("spl.token library is required for ATA derivation")
+    def get_associated_token_address(owner: Pubkey, mint: Pubkey) -> Pubkey:  # type: ignore
+        seed = b"ata" + owner.to_bytes() + mint.to_bytes()
+        return Pubkey(hashlib.sha256(seed).digest()[:32])
 
 
 def ata(mint: str, owner: str) -> str:

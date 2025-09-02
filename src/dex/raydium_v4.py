@@ -15,6 +15,10 @@ from typing import List
 
 from solders.instruction import AccountMeta, Instruction
 from solders.pubkey import Pubkey
+from src.core.ata import ata
+
+TOKEN_PROGRAM = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+SYSTEM_PROGRAM = "11111111111111111111111111111111"
 
 
 @dataclass
@@ -29,6 +33,8 @@ class PoolAccounts:
     open_orders: str
     target_orders: str
     amm_config: str
+    base_mint: str
+    quote_mint: str
 
 
 def _pda(seeds: List[bytes], program_id: Pubkey) -> Pubkey:
@@ -68,6 +74,8 @@ def derive_pool_accounts(base_mint: str, quote_mint: str, program_id: str) -> Po
         open_orders=str(open_orders),
         target_orders=str(target_orders),
         amm_config=str(amm_config),
+        base_mint=str(base),
+        quote_mint=str(quote),
     )
 
 
@@ -122,6 +130,8 @@ def build_swap_SOL_to_base(
     """
 
     pid = Pubkey.from_string(program_id)
+    user_quote = Pubkey.from_string(ata(accounts.quote_mint, user_pub))
+    user_base = Pubkey.from_string(ata(accounts.base_mint, user_pub))
     metas = [
         AccountMeta(Pubkey.from_string(accounts.pool), False, True),
         AccountMeta(Pubkey.from_string(accounts.authority), False, False),
@@ -129,7 +139,11 @@ def build_swap_SOL_to_base(
         AccountMeta(Pubkey.from_string(accounts.target_orders), False, True),
         AccountMeta(Pubkey.from_string(accounts.vault_base), False, True),
         AccountMeta(Pubkey.from_string(accounts.vault_quote), False, True),
-        AccountMeta(Pubkey.from_string(user_pub), True, True),
+        AccountMeta(user_quote, False, True),
+        AccountMeta(user_base, False, True),
+        AccountMeta(Pubkey.from_string(user_pub), True, False),
+        AccountMeta(Pubkey.from_string(TOKEN_PROGRAM), False, False),
+        AccountMeta(Pubkey.from_string(SYSTEM_PROGRAM), False, False),
     ]
 
     data = (

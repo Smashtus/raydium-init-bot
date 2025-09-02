@@ -7,6 +7,7 @@ from src.models.plan import Plan
 from src.core.solana import Rpc
 from src.core.tx import with_compute_budget
 from src.dex.raydium_v4 import derive_pool_accounts, build_swap_SOL_to_base
+from src.core.ata import ata
 
 
 async def run(
@@ -44,10 +45,14 @@ async def run(
         kp = wallet_map[wid]["kp"]
         tx = Transaction()
         with_compute_budget(tx, cu_limit, cu_price_micro)
+        user_pub = wallet_map[wid]["pub"]
+        # Derive user source/destination ATAs; builder references these implicitly
+        _user_wsol = ata(quote_mint, user_pub)
+        _user_base = ata(base_mint, user_pub)
         for ix in build_swap_SOL_to_base(
             program_id,
             accounts,
-            wallet_map[wid]["pub"],
+            user_pub,
             in_lamports=int(w.action.effective_base_sol * 1_000_000_000),
             min_out=w.action.min_out_tokens,
             slippage_bps=w.action.slippage_bps,
