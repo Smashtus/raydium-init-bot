@@ -1,10 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Dict
-from solders.keypair import Keypair
 from pathlib import Path
 import json, os, base64
 from cryptography.fernet import Fernet
+from solders.keypair import Keypair
 
 
 @dataclass
@@ -35,6 +35,16 @@ def save_encrypted(dirpath: Path, name: str, kp: Keypair) -> str:
     out = dirpath / f"{name}.enc"
     out.write_bytes(token)
     return str(out)
+
+
+def load_encrypted(path: str) -> Keypair:
+    """Decrypt a previously ``save_encrypted`` keypair file."""
+
+    token = Path(path).read_bytes()
+    pw = os.environ.get("LAUNCHER_WALLET_PASS", "")
+    key = base64.urlsafe_b64encode(pw.encode().ljust(32, b"\0")[:32])
+    kp_bytes = Fernet(key).decrypt(token)
+    return Keypair.from_bytes(kp_bytes)
 
 
 def pubkey_str(kp: Keypair) -> str:

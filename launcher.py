@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, asyncio
+import argparse, asyncio, json
 from pathlib import Path
 from rich.console import Console
 from rich.table import Table
@@ -8,22 +8,40 @@ from src.util.logging import setup_logging, log
 from src.util.config import load_config
 from src.util.planhash import sha256_file
 from src.exec.orchestrator import execute_async, RunConfig
+from src.util import preflight as preflight_mod
+from scripts.verify import verify as verify_script
+from src.core.solana import Rpc, RpcConfig
 
 console = Console()
 
-def parse_args() -> argparse.Namespace:
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Sol Atomic Launcher (plan-first, prod-safe).")
-    p.add_argument("--plan", required=True, help="Path to plan JSON")
-    p.add_argument("--seed-keypair", required=False, help="Seed keypair JSON file (ed25519)")
-    p.add_argument("--rpc", required=True, help="RPC URL for cluster")
-    p.add_argument("--priority-fee", type=int, default=None, help="Compute unit price (micro-lamports)")
-    p.add_argument("--cu-limit", type=int, default=1_000_000, help="Compute unit limit per tx")
-    p.add_argument("--simulate", action="store_true", help="Simulate each tx before send")
-    p.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
-    p.add_argument("--only", choices=["fund","mint","metadata","lp","lp_init","buys","all"], default="all")
-    p.add_argument("--out", default="state", help="Output state dir")
-    p.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
-    return p.parse_args()
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    run = sub.add_parser("run", help="Execute a plan")
+    run.add_argument("--plan", required=True, help="Path to plan JSON")
+    run.add_argument("--seed-keypair", required=False, help="Seed keypair JSON file (ed25519)")
+    run.add_argument("--rpc", required=True, help="RPC URL for cluster")
+    run.add_argument("--priority-fee", type=int, default=None, help="Compute unit price (micro-lamports)")
+    run.add_argument("--cu-limit", type=int, default=1_000_000, help="Compute unit limit per tx")
+    run.add_argument("--simulate", action="store_true", help="Simulate each tx before send")
+    run.add_argument("--resume", action="store_true", help="Resume from last checkpoint")
+    run.add_argument("--only", choices=["fund","mint","metadata","lp","lp_init","buys","all"], default="all")
+    run.add_argument("--out", default="state", help="Output state dir")
+    run.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
+
+    pre = sub.add_parser("preflight", help="Dry-run planners and verify configuration")
+    pre.add_argument("--plan", required=True, help="Path to plan JSON")
+    pre.add_argument("--rpc", required=True, help="RPC URL for cluster")
+    pre.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
+    pre.add_argument("--out", default="state", help="Output state dir")
+
+    ver = sub.add_parser("verify", help="Verify on-chain state against artifacts")
+    ver.add_argument("--out", default="state", help="State directory with artifacts")
+    ver.add_argument("--rpc", required=True, help="RPC URL for cluster")
+    ver.add_argument("--config", default="configs/defaults.yaml", help="Path to config YAML")
+
+    return p
 
 def print_plan_summary(plan_path: Path, cfg: dict) -> None:
     plan = load_plan(plan_path)
@@ -43,7 +61,31 @@ def print_plan_summary(plan_path: Path, cfg: dict) -> None:
 
 def main() -> None:
     setup_logging()
-    args = parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.cmd == "preflight":
+        plan_path = Path(args.plan)
+        cfg = load_config(Path(args.config))
+        plan = load_plan(plan_path)
+        rpc = Rpc(RpcConfig(url=args.rpc))
+        res = asyncio.run(preflight_mod.preflight(rpc, plan_path, cfg, plan))
+        out = Path(args.out) / "preflight.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(res, indent=2))
+        t = Table(title="Preflight")
+        t.add_column("Check")
+        t.add_column("Value")
+        for k, v in res["checks"].items():
+            t.add_row(k, str(v))
+        console.print(t)
+        return
+
+    if args.cmd == "verify":
+        asyncio.run(verify_script(Path(args.out), args.rpc, Path(args.config)))
+        return
+
+    # run subcommand
     plan_path = Path(args.plan)
     cfg_yaml = Path(args.config)
     cfg_yaml.parent.mkdir(parents=True, exist_ok=True)
@@ -57,12 +99,12 @@ def main() -> None:
     rc = RunConfig(
         out_dir=Path(args.out),
         resume=args.resume,
-        only=("lp_init" if args.only in ("lp","lp_init") else args.only),
+        only=("lp_init" if args.only in ("lp", "lp_init") else args.only),
         plan_hash=plan_hash,
         rpc_url=args.rpc,
         cu_limit=args.cu_limit,
         cu_price_micro=args.priority_fee,
-        simulate=args.simulate
+        simulate=args.simulate,
     )
 
     # Persist executed plan for audit
