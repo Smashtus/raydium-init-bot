@@ -2,25 +2,27 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from rich.table import Table
+from typing import Tuple, Dict, Any, List
+
 from rich.console import Console
 
 from src.core.solana import Rpc, RpcConfig
 from src.core.metaplex import find_metadata_pda
 from src.dex.raydium_v4 import derive_pool_accounts, probe_pool_exists
 from src.util.config import load_config
+from src.util.planhash import sha256_file
 
 
 console = Console()
 
 
-async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
-    """Verify on‑chain state for the current deployment.
+async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> Tuple[Dict[str, Any], bool]:
+    """Verify on-chain state for the current deployment.
 
-    The function inspects the persisted ``artifacts.json`` file and checks
-    whether the expected mint, metadata account and Raydium pool have been
-    created.  Network access is read‑only and therefore safe in testing
-    environments.
+    The function is intentionally read-only and cross references the persisted
+    ``artifacts.json`` with on-chain data.  Missing artifacts or network errors
+    simply result in ``False`` checks allowing tests to exercise the happy and
+    unhappy paths deterministically.
     """
 
     art_path = out_dir / "artifacts.json"
@@ -28,56 +30,68 @@ async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
     cfg = load_config(cfg_path)
     rpc = Rpc(RpcConfig(url=rpc_url))
 
-    checks = {
-        "mint_exists": False,
-        "metadata_exists": False,
-        "pool_exists": False,
-        "swap_txs": [],
-    }
-
-    mint = artifacts.get("mint", {}).get("mint")
+    mint: str = artifacts.get("mint", {}).get("mint", "")
+    metadata_pda = ""
+    pool_addr = ""
     if mint:
-        checks["mint_exists"] = await rpc.account_exists(mint)
+        mint_exists = await rpc.account_exists(mint)
+        md_prog = cfg["program_ids"]["metaplex_token_metadata"]
+        metadata_pda = find_metadata_pda(mint, md_prog)
+        metadata_exists = await rpc.account_exists(metadata_pda)
 
-        mp_prog = cfg.get("program_ids", {}).get("metaplex_token_metadata")
-        if mp_prog:
-            md_pda = find_metadata_pda(mint, mp_prog)
-            checks["metadata_exists"] = await rpc.account_exists(md_pda)
+        accs = derive_pool_accounts(
+            mint, cfg["mints"]["wrapped_sol"], cfg["program_ids"]["raydium_v4_amm"]
+        )
+        pool_addr = accs.pool
+        pool_exists = await probe_pool_exists(rpc, accs)
+    else:
+        mint_exists = metadata_exists = pool_exists = False
 
-        ray_prog = cfg.get("program_ids", {}).get("raydium_v4_amm")
-        wsol = cfg.get("mints", {}).get("wrapped_sol")
-        if ray_prog and wsol:
-            accs = derive_pool_accounts(base_mint=mint, quote_mint=wsol, program_id=ray_prog)
-            checks["pool_exists"] = await probe_pool_exists(rpc, accs)
-
-    # Best-effort check of swap transactions
-    swaps = artifacts.get("buys", {}).get("swaps", [])
-    for s in swaps:
+    swaps: List[Dict[str, Any]] = []
+    for s in artifacts.get("buys", {}).get("swaps", []):
         sig = s.get("sig")
         if not sig:
             continue
+        wid = s.get("wallet_id", "")
+        present = False
         try:
             from solders.signature import Signature
+
             tx = await rpc.client.get_transaction(Signature.from_string(sig))
-            checks["swap_txs"].append({"sig": sig, "found": tx.value is not None})
+            present = tx.value is not None
         except Exception:
-            checks["swap_txs"].append({"sig": sig, "found": False})
+            present = False
+        swaps.append({"wallet_id": wid, "sig": sig, "tx_present": present})
 
-    (out_dir / "verify.json").write_text(json.dumps(checks, indent=2))
+    plan_path = out_dir / "plan.json"
+    plan_hash = sha256_file(plan_path) if plan_path.exists() else ""
 
-    t = Table(title="Verify")
-    t.add_column("Check")
-    t.add_column("Value")
-    for k, v in checks.items():
-        if k == "swap_txs":
-            t.add_row("swap_txs_found", f"{sum(1 for s in v if s['found'])}/{len(v)}")
-        else:
-            t.add_row(k, str(v))
-    console.print(t)
+    result: Dict[str, Any] = {
+        "schema_version": "1.0.0",
+        "plan_hash": plan_hash,
+        "mint": mint,
+        "metadata_pda": metadata_pda,
+        "pool": pool_addr,
+        "checks": {
+            "mint_exists": mint_exists,
+            "metadata_exists": metadata_exists,
+            "pool_exists": pool_exists,
+        },
+        "swaps": swaps,
+    }
 
+    (out_dir / "verify.json").write_text(json.dumps(result, indent=2))
+
+    present = sum(1 for s in swaps if s["tx_present"])
+    console.print("VERIFY RESULT")
+    console.print(f"- mint_exists: {'OK' if mint_exists else 'FAIL'}")
+    console.print(f"- metadata_exists: {'OK' if metadata_exists else 'FAIL'}")
+    console.print(f"- pool_exists: {'OK' if pool_exists else 'FAIL'}")
+    console.print(f"- swaps (present/total): {present}/{len(swaps)}")
+
+    ok = mint_exists and metadata_exists and pool_exists
     await rpc.close()
-    ok = bool(checks.get("mint_exists")) and bool(checks.get("metadata_exists")) and bool(checks.get("pool_exists"))
-    return checks, ok
+    return result, ok
 
 
 if __name__ == "__main__":  # pragma: no cover
