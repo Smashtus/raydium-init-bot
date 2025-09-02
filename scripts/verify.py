@@ -32,6 +32,7 @@ async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
         "mint_exists": False,
         "metadata_exists": False,
         "pool_exists": False,
+        "swap_txs": [],
     }
 
     mint = artifacts.get("mint", {}).get("mint")
@@ -49,13 +50,29 @@ async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
             accs = derive_pool_accounts(base_mint=mint, quote_mint=wsol, program_id=ray_prog)
             checks["pool_exists"] = await probe_pool_exists(rpc, accs)
 
+    # Best-effort check of swap transactions
+    swaps = artifacts.get("buys", {}).get("swaps", [])
+    for s in swaps:
+        sig = s.get("sig")
+        if not sig:
+            continue
+        try:
+            from solders.signature import Signature
+            tx = await rpc.client.get_transaction(Signature.from_string(sig))
+            checks["swap_txs"].append({"sig": sig, "found": tx.value is not None})
+        except Exception:
+            checks["swap_txs"].append({"sig": sig, "found": False})
+
     (out_dir / "verify.json").write_text(json.dumps(checks, indent=2))
 
     t = Table(title="Verify")
     t.add_column("Check")
     t.add_column("Value")
     for k, v in checks.items():
-        t.add_row(k, str(v))
+        if k == "swap_txs":
+            t.add_row("swap_txs_found", f"{sum(1 for s in v if s['found'])}/{len(v)}")
+        else:
+            t.add_row(k, str(v))
     console.print(t)
 
     await rpc.close()

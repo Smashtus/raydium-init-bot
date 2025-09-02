@@ -41,6 +41,10 @@ def build_create_metadata_v3(
     or uses and sets ``seller_fee_basis_points`` to ``0``.  ``is_mutable`` is
     always ``True`` for newly minted tokens in this launcher.
     """
+    # Guard string fields to the on‑chain limits enforced by Metaplex
+    name = (name or "")[:32]
+    symbol = (symbol or "")[:10]
+    uri = (uri or "")[:200]
 
     metadata_pda = Pubkey.from_string(find_metadata_pda(mint, metadata_program))
     keys = [
