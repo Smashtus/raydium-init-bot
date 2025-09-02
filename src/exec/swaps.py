@@ -21,6 +21,7 @@ async def run(
     cu_price_micro: int | None,
     simulate: bool = False,
     buys_done: Dict[str, bool] | None = None,
+    max_buys: int | None = None,
 ) -> Dict[str, Any]:
     """Execute the buy schedule using Raydium swap instructions.
 
@@ -33,15 +34,31 @@ async def run(
         buys_done = {}
     results: List[Dict[str, Any]] = []
     order = 0
+    emitted = 0
     accounts = derive_pool_accounts(base_mint, quote_mint, program_id)
-    for wid in plan.schedule:
+    sched = list(enumerate(plan.schedule))
+    idx = 0
+    while idx < len(sched):
+        _, wid = sched[idx]
         w = next(w for w in plan.wallets if w.wallet_id == wid)
         if not w.action or w.action.type not in ("SWAP_BUY", "SWAP_BUY_SOL"):
+            idx += 1
             continue
         order += 1
         if buys_done.get(wid):
             results.append({"order": order, "wallet_id": wid, "skipped": True, "reason": "already_swapped"})
+            idx += 1
             continue
+        if max_buys is not None and emitted >= max_buys:
+            results.append({"order": order, "wallet_id": wid, "skipped": True, "reason": "max_buys_reached"})
+            for j in range(idx + 1, len(sched)):
+                wid2 = sched[j][1]
+                w2 = next(w for w in plan.wallets if w.wallet_id == wid2)
+                if not w2.action or w2.action.type not in ("SWAP_BUY", "SWAP_BUY_SOL"):
+                    continue
+                order += 1
+                results.append({"order": order, "wallet_id": wid2, "skipped": True, "reason": "max_buys_reached"})
+            break
         kp = wallet_map[wid]["kp"]
         tx = Transaction()
         with_compute_budget(tx, cu_limit, cu_price_micro)
@@ -66,5 +83,7 @@ async def run(
             sig = await rpc.send_and_confirm(tx, kp)
             results.append({"order": order, "wallet_id": wid, "sig": sig})
         buys_done[wid] = True
+        emitted += 1
+        idx += 1
     return {"swaps": results}
 

@@ -76,7 +76,8 @@ async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
     console.print(t)
 
     await rpc.close()
-    return checks
+    ok = bool(checks.get("mint_exists")) and bool(checks.get("metadata_exists")) and bool(checks.get("pool_exists"))
+    return checks, ok
 
 
 if __name__ == "__main__":  # pragma: no cover
