@@ -15,29 +15,41 @@ console = Console()
 
 
 async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
-    """Verify on-chain state for artifacts in ``out_dir``."""
+    """Verify on‑chain state for the current deployment.
+
+    The function inspects the persisted ``artifacts.json`` file and checks
+    whether the expected mint, metadata account and Raydium pool have been
+    created.  Network access is read‑only and therefore safe in testing
+    environments.
+    """
 
     art_path = out_dir / "artifacts.json"
     artifacts = json.loads(art_path.read_text()) if art_path.exists() else {}
     cfg = load_config(cfg_path)
     rpc = Rpc(RpcConfig(url=rpc_url))
 
-    checks = {}
+    checks = {
+        "mint_exists": False,
+        "metadata_exists": False,
+        "pool_exists": False,
+    }
 
     mint = artifacts.get("mint", {}).get("mint")
     if mint:
         checks["mint_exists"] = await rpc.account_exists(mint)
-        mp = cfg.get("program_ids", {}).get("metaplex_token_metadata")
-        if mp:
-            md_pda = find_metadata_pda(mint, mp)
+
+        mp_prog = cfg.get("program_ids", {}).get("metaplex_token_metadata")
+        if mp_prog:
+            md_pda = find_metadata_pda(mint, mp_prog)
             checks["metadata_exists"] = await rpc.account_exists(md_pda)
 
-    if artifacts.get("lp_init", {}).get("pool"):
-        pool = artifacts["lp_init"]["pool"]
-        checks["pool_exists"] = await rpc.account_exists(pool)
+        ray_prog = cfg.get("program_ids", {}).get("raydium_v4_amm")
+        wsol = cfg.get("mints", {}).get("wrapped_sol")
+        if ray_prog and wsol:
+            accs = derive_pool_accounts(base_mint=mint, quote_mint=wsol, program_id=ray_prog)
+            checks["pool_exists"] = await probe_pool_exists(rpc, accs)
 
-    out = {"checks": checks, "ok": all(checks.values()) if checks else False}
-    (out_dir / "verify.json").write_text(json.dumps(out, indent=2))
+    (out_dir / "verify.json").write_text(json.dumps(checks, indent=2))
 
     t = Table(title="Verify")
     t.add_column("Check")
@@ -47,7 +59,7 @@ async def verify(out_dir: Path, rpc_url: str, cfg_path: Path) -> dict:
     console.print(t)
 
     await rpc.close()
-    return out
+    return checks
 
 
 if __name__ == "__main__":  # pragma: no cover
