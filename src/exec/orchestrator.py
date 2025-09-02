@@ -76,7 +76,16 @@ async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, conf
     mint_art = state.artifacts.get("mint")
     if cfg.only in ("all", "mint"):
         if mint_art and await rpc.account_exists(mint_art.get("mint")):
-            state.mark("mint", StepReceipt(step="mint", ok=True, inputs={}, outputs={"skipped": True}, plan_hash=cfg.plan_hash))
+            state.mark(
+                "mint",
+                StepReceipt(
+                    step="mint",
+                    ok=True,
+                    inputs={},
+                    outputs={"skipped": True, "reason": "mint_exists"},
+                    plan_hash=cfg.plan_hash,
+                ),
+            )
         elif not (cfg.resume and state.done("mint") and mint_art):
             lp_creator = next(w for w in plan.wallets if w.role == "LP_CREATOR")
             lp_pub = (wallet_map.get(lp_creator.wallet_id) or state.artifacts["wallets"][lp_creator.wallet_id])["pub"]
@@ -91,7 +100,16 @@ async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, conf
         mp = load_config(config_yaml).get("program_ids", {}).get("metaplex_token_metadata")
         md_pda = find_metadata_pda(mint_art["mint"], mp)
         if await rpc.account_exists(md_pda):
-            state.mark("metadata", StepReceipt(step="metadata", ok=True, inputs={"mint": mint_art["mint"]}, outputs={"skipped": True}, plan_hash=cfg.plan_hash))
+            state.mark(
+                "metadata",
+                StepReceipt(
+                    step="metadata",
+                    ok=True,
+                    inputs={"mint": mint_art["mint"]},
+                    outputs={"skipped": True, "reason": "metadata_exists"},
+                    plan_hash=cfg.plan_hash,
+                ),
+            )
         elif not (cfg.resume and state.done("metadata")):
             md = await metadata.run(
                 rpc,
@@ -126,7 +144,7 @@ async def execute_async(plan: Plan, cfg: RunConfig, seed_keypair_path: str, conf
                     step="lp_init",
                     ok=True,
                     inputs={"mint": mint_art["mint"]},
-                    outputs={"skipped": True, "pool": accounts.pool},
+                    outputs={"skipped": True, "reason": "pool_exists", "pool": accounts.pool},
                     plan_hash=cfg.plan_hash,
                 ),
             )

@@ -76,8 +76,10 @@ def main() -> None:
         t = Table(title="Preflight")
         t.add_column("Check")
         t.add_column("Value")
-        for k, v in res["checks"].items():
+        for k, v in res["program_checks"].items():
             t.add_row(k, str(v))
+        t.add_row("simulate_metadata_ok", str(res["simulate_metadata_ok"]))
+        t.add_row("simulate_init_ok", str(res["simulate_init_ok"]))
         console.print(t)
         return
 

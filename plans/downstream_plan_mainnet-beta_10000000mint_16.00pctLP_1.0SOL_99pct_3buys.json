@@ -31,7 +31,7 @@
     "quote_mint": "So11111111111111111111111111111111111111112",
     "quote_decimals": 9
   },
-  "schedule": ["w1"],
+  "schedule": ["w1", "w2", "w3"],
   "wallets": [
     {
       "wallet_id": "seed",
@@ -41,14 +41,32 @@
     },
     {
       "wallet_id": "w1",
+      "role": "USER",
+      "funding": {"total_lamports": 0},
+      "action": {"type": "SWAP_BUY_SOL", "effective_base_sol": 0.5, "min_out_tokens": 0, "slippage_bps": 50}
+    },
+    {
+      "wallet_id": "w2",
+      "role": "USER",
+      "funding": {"total_lamports": 0},
+      "action": {"type": "SWAP_BUY_SOL", "effective_base_sol": 0.3, "min_out_tokens": 0, "slippage_bps": 50}
+    },
+    {
+      "wallet_id": "w3",
+      "role": "USER",
+      "funding": {"total_lamports": 0},
+      "action": {"type": "SWAP_BUY_SOL", "effective_base_sol": 0.2, "min_out_tokens": 0, "slippage_bps": 50}
+    },
+    {
+      "wallet_id": "lp",
       "role": "LP_CREATOR",
-      "funding": {"total_lamports": 1000000000, "base_lamports": 1000000000},
+      "funding": {"total_lamports": 0},
       "action": {"type": "CREATE_LP"}
     }
   ],
   "invariants": {
-    "sum_non_seed_lamports": 1000000000,
-    "seed_lamports": 1000000000,
+    "sum_non_seed_lamports": 0,
+    "seed_lamports": 0,
     "expected_equalities": []
   },
   "tx_defaults": {
