@@ -18,7 +18,7 @@ async def preflight(rpc: Rpc, plan_path: Path, cfg: Dict[str, Any], plan) -> Dic
     for k, v in (cfg.get("program_ids") or {}).items():
         if not v:
             continue
-        program_checks[f"prog_{k}"] = bool(await rpc.account_exists(v))
+        program_checks[k] = bool(await rpc.account_exists(v))
 
     # Determine base mint for simulation
     base_mint = None
