@@ -1,6 +1,6 @@
 # Core Solana stack
 solana==0.36.6
-solders==0.21.0
+solders==0.26.0
 anchorpy==0.20.1
 construct==2.10.70
 base58==2.1.1
