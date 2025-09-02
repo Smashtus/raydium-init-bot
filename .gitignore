@@ -17,3 +17,10 @@ __pycache__/
 
 # misc
 .DS_Store
+
+# Local Python env and artifacts
+venv/
+__pycache__/
+*.pyc
+state/
+.shadow_backup/
